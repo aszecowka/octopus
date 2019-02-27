@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"time"
 )
 
 var log = logf.Log.WithName("controller")
@@ -125,35 +126,39 @@ func (r *ReconcileTestSuite) Reconcile(request reconcile.Request) (reconcile.Res
 
 	suite = suite.DeepCopy()
 
-	if r.isUninitialized(suite) {
+	if r.isUninitialized(*suite) {
 		log.Info("Initialize suite")
 		testDefs, err := r.findTestsThatMatches(suite)
 		if err != nil {
 			return reconcile.Result{}, nil
 		}
-		if err := r.initializeTests(suite, testDefs); err != nil {
+		currStatus, err := r.initializeTests(*suite, testDefs);
+		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		if err := r.Client.Status().Update(ctx, suite); err != nil {
+		if err := r.updateStatus(ctx, suite, currStatus); err != nil {
 			return reconcile.Result{}, err
 		}
 
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	if r.isFinished(suite) {
+	if r.isFinished(*suite) {
 		log.Info("Nothing to do with suite")
 		return reconcile.Result{}, nil
 	}
 
 	// Test Suite is in progress
 	log.Info("Ensuring status up-to-date")
-	if err := r.ensureStatusUpToDate(suite); err != nil {
+	currStatus, err := r.ensureStatusUpToDate(suite);
+	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	pod, err := r.tryScheduleTests(suite)
+	suite.Status = *currStatus
+
+	pod, currStatus, err := r.tryScheduleTests(*suite)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -165,22 +170,29 @@ func (r *ReconcileTestSuite) Reconcile(request reconcile.Request) (reconcile.Res
 		}
 	}
 
-	if err := r.Client.Status().Update(ctx, suite); err != nil {
+	if err := r.updateStatus(ctx, suite, *currStatus); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	return reconcile.Result{}, nil
+	// TODO how to handle timeout? reconcile for 1 min?
+
+	return reconcile.Result{Requeue: true, RequeueAfter: time.Minute}, nil
 }
 
-func (r *ReconcileTestSuite) isUninitialized(suite *testingv1alpha1.TestSuite) bool {
+func (r *ReconcileTestSuite) updateStatus(ctx context.Context, suite *testingv1alpha1.TestSuite, currentStatus testingv1alpha1.TestSuiteStatus) error {
+	suite.Status = currentStatus
+	return r.Client.Status().Update(ctx, suite)
+}
+
+func (r *ReconcileTestSuite) isUninitialized(suite testingv1alpha1.TestSuite) bool {
 	return r.statusService.IsUninitialized(suite)
 }
 
-func (r *ReconcileTestSuite) isFinished(suite *testingv1alpha1.TestSuite) bool {
+func (r *ReconcileTestSuite) isFinished(suite testingv1alpha1.TestSuite) bool {
 	return r.statusService.IsFinished(suite)
 }
 
-func (r *ReconcileTestSuite) initializeTests(suite *testingv1alpha1.TestSuite, defs []testingv1alpha1.TestDefinition) error {
+func (r *ReconcileTestSuite) initializeTests(suite testingv1alpha1.TestSuite, defs []testingv1alpha1.TestDefinition) (testingv1alpha1.TestSuiteStatus, error) {
 	return r.statusService.InitializeTests(suite, defs)
 }
 
@@ -190,15 +202,15 @@ func (r *ReconcileTestSuite) findTestsThatMatches(suite *testingv1alpha1.TestSui
 }
 
 // get info from pods
-func (r *ReconcileTestSuite) ensureStatusUpToDate(suite *testingv1alpha1.TestSuite) error {
+func (r *ReconcileTestSuite) ensureStatusUpToDate(suite *testingv1alpha1.TestSuite) (*testingv1alpha1.TestSuiteStatus, error) {
 	pods, err := r.reporter.GetPodsForSuite(suite)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return r.statusService.EnsureStatusIsUpToDate(suite, pods)
+	return r.statusService.EnsureStatusIsUpToDate(*suite, pods)
 }
 
 // create Pod
-func (r *ReconcileTestSuite) tryScheduleTests(suite *testingv1alpha1.TestSuite) (*v1.Pod, error) {
+func (r *ReconcileTestSuite) tryScheduleTests(suite testingv1alpha1.TestSuite) (*v1.Pod, *testingv1alpha1.TestSuiteStatus, error) {
 	return r.scheduler.TryScheduleTest(suite)
 }

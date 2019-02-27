@@ -22,7 +22,7 @@ type Status struct {
 	nowProvider NowProvider
 }
 
-func (s *Status) IsUninitialized(suite *v1alpha1.TestSuite) bool {
+func (s *Status) IsUninitialized(suite v1alpha1.TestSuite) bool {
 	if len(suite.Status.Conditions) == 0 {
 		return true
 	}
@@ -35,7 +35,7 @@ func (s *Status) IsUninitialized(suite *v1alpha1.TestSuite) bool {
 	return false
 }
 
-func (s *Status) isConditionSet(suite *v1alpha1.TestSuite, tp v1alpha1.TestSuiteConditionType) bool {
+func (s *Status) isConditionSet(suite v1alpha1.TestSuite, tp v1alpha1.TestSuiteConditionType) bool {
 	for _, cond := range suite.Status.Conditions {
 		if cond.Type == tp && cond.Status == v1alpha1.StatusTrue {
 			return true
@@ -44,7 +44,7 @@ func (s *Status) isConditionSet(suite *v1alpha1.TestSuite, tp v1alpha1.TestSuite
 	return false
 }
 
-func (s *Status) setCondition(suite *v1alpha1.TestSuite, tp v1alpha1.TestSuiteConditionType) {
+func (s *Status) setCondition(suite v1alpha1.TestSuite, tp v1alpha1.TestSuiteConditionType) {
 	found := false
 	for idx, _ := range suite.Status.Conditions {
 		if suite.Status.Conditions[idx].Type == tp {
@@ -68,13 +68,13 @@ func (s *Status) setCondition(suite *v1alpha1.TestSuite, tp v1alpha1.TestSuiteCo
 	})
 }
 
-func (s *Status) IsFinished(suite *v1alpha1.TestSuite) bool {
+func (s *Status) IsFinished(suite v1alpha1.TestSuite) bool {
 	return s.isConditionSet(suite, v1alpha1.SuiteError) ||
 		s.isConditionSet(suite, v1alpha1.SuiteFailed) ||
 		s.isConditionSet(suite, v1alpha1.SuiteSucceed)
 }
 
-func (s *Status) InitializeTests(suite *v1alpha1.TestSuite, testsDef []v1alpha1.TestDefinition) error {
+func (s *Status) InitializeTests(suite v1alpha1.TestSuite, testsDef []v1alpha1.TestDefinition) (v1alpha1.TestSuiteStatus, error) {
 	suite.Status.StartTime = &v1.Time{Time: s.nowProvider.Now()}
 
 	if len(testsDef) == 0 {
@@ -122,7 +122,7 @@ func (s *Status) SetTestResultCondition(tr *v1alpha1.TestResult, tp v1alpha1.Tes
 
 }
 
-func (s *Status) GetTestResultByCondition(suite *v1alpha1.TestSuite, tp v1alpha1.TestResultConditionType) ([]v1alpha1.TestResult, error) {
+func (s *Status) GetTestResultByCondition(suite v1alpha1.TestSuite, tp v1alpha1.TestResultConditionType) ([]v1alpha1.TestResult, error) {
 	var out []v1alpha1.TestResult
 	for _, testResult := range suite.Status.Results {
 		for _, cond := range testResult.Conditions {
@@ -135,7 +135,8 @@ func (s *Status) GetTestResultByCondition(suite *v1alpha1.TestSuite, tp v1alpha1
 	return out, nil
 }
 
-func (s *Status) EnsureStatusIsUpToDate(suite *v1alpha1.TestSuite, pods []v12.Pod) error {
+func (s *Status) EnsureStatusIsUpToDate(suite v1alpha1.TestSuite, pods []v12.Pod) ( *v1alpha1.TestSuiteStatus, error) {
+
 	for _, pod := range pods {
 		id := pod.Name
 		for idx, tr := range suite.Status.Results {
@@ -153,7 +154,7 @@ func (s *Status) EnsureStatusIsUpToDate(suite *v1alpha1.TestSuite, pods []v12.Po
 				case v12.PodUnknown:
 					//TODO
 				default:
-					return errors.New("unsupported pod phase")
+					return nil,errors.New("unsupported pod phase")
 				}
 				break
 			}
@@ -162,21 +163,21 @@ func (s *Status) EnsureStatusIsUpToDate(suite *v1alpha1.TestSuite, pods []v12.Po
 
 	running, err := s.GetTestResultByCondition(suite, v1alpha1.TestRunning)
 	if err != nil {
-		return err
+		return nil,err
 	}
 	failed, err := s.GetTestResultByCondition(suite, v1alpha1.TestFailed)
 	if err != nil {
-		return err
+		return nil,err
 	}
 
 	errored, err := s.GetTestResultByCondition(suite, v1alpha1.TestError)
 	if err != nil {
-		return err
+		return nil,err
 	}
 
 	pending, err := s.GetTestResultByCondition(suite, v1alpha1.TestPending)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if len(running)+len(pending) > 0 {

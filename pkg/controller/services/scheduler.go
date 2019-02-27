@@ -30,23 +30,23 @@ type Scheduler struct {
 	scheme         *runtime.Scheme
 }
 
-func (s *Scheduler) TryScheduleTest(suite *v1alpha1.TestSuite) (*v1.Pod, error) {
+func (s *Scheduler) TryScheduleTest(suite v1alpha1.TestSuite) (*v1.Pod, *v1alpha1.TestSuiteStatus, error) {
 	ctx := context.TODO()
 
 	if !s.canScheduleNext(suite) {
-		return nil, nil
+		return nil, nil, nil
 	}
 	toSched, err := s.getNextToSchedule(suite)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if toSched == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	var def v1alpha1.TestDefinition
 	if err := s.reader.Get(ctx, client.ObjectKey{Namespace: toSched.Namespace, Name: toSched.Name}, &def); err != nil {
 		// TODO avoid infinte loop for cases when always error is returned
-		return nil, err
+		return nil, nil, err
 	}
 	pod, err := s.startPod(suite, def)
 	if err != nil {
@@ -70,7 +70,7 @@ func (s *Scheduler) TryScheduleTest(suite *v1alpha1.TestSuite) (*v1.Pod, error) 
 	return pod, nil
 }
 
-func (s *Scheduler) canScheduleNext(suite *v1alpha1.TestSuite) bool {
+func (s *Scheduler) canScheduleNext(suite v1alpha1.TestSuite) bool {
 	return true // TODO huge simplification
 }
 
