@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-example
+spec:
+  selector:
+    matchLabels:
+      aaa: example
+  template:
+    metadata:
+      labels:
+        aaa: example
+    spec:
+      containers:
+        - image: alpine:latest

@@ -82,3 +82,7 @@ func TestGetPodsForSuiteOnError(t *testing.T) {
 	// THEN
 	require.EqualError(t, err, "while getting pods for suite [test-all-suite]: some error")
 }
+
+
+// XXX
+// pkh/apis/core/validation --> ValidatePodTemplateSpec

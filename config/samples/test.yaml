@@ -14,7 +14,6 @@ spec:
   template:
     spec:
       containers:
-        - name: test
-          image: alpine:latest
+        - image: alpine:latest
           command:
             - "pwd"
