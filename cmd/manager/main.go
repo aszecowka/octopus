@@ -17,16 +17,21 @@ package main
 
 import (
 	"flag"
-	"os"
-
+	"fmt"
 	"github.com/kyma-incubator/octopus/pkg/apis"
 	"github.com/kyma-incubator/octopus/pkg/controller"
 	"github.com/kyma-incubator/octopus/pkg/webhook"
+	"k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+	webhook2 "sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission/builder"
 )
 
 func main() {
@@ -73,6 +78,38 @@ func main() {
 		log.Error(err, "unable to register webhooks to the manager")
 		os.Exit(1)
 	}
+
+	//p := v1.Pod{}
+	//fmt.Println(p)
+
+	wh, err := builder.NewWebhookBuilder().Mutating().Operations(v1beta1.Create).ForType(&v1.Pod{}).Handlers(&webhook.PodAnnotator{}).WithManager(mgr).Build()
+	if err != nil {
+		panic(err)
+	}
+
+	svr, err := webhook2.NewServer("foo-admission-server", mgr, webhook2.ServerOptions{
+		CertDir: "/tmp/cert",
+		BootstrapOptions: &webhook2.BootstrapOptions{
+			Secret: &types.NamespacedName{
+				Name:      "foo-admission-server-secret",
+				Namespace: "default",
+			},
+			Service: &webhook2.Service{
+				Namespace: "default",
+				Name:      "foo-admission-server-service",
+				Selectors: map[string]string{
+					"app": "foo-admission-server",
+				},
+			},
+		},
+	})
+
+	svr.
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(svr)
 
 	// Start the Cmd
 	log.Info("Starting the Cmd.")

@@ -24,10 +24,6 @@ required = [
   name = "k8s.io/apimachinery"
   version = "kubernetes-1.12.3"
 
-[[override]]
-  name = "k8s.io/apiserver"
-  branch = "kubernetes-1.12.3"
-
 # STANZAS BELOW ARE GENERATED AND MAY BE WRITTEN - DO NOT MODIFY BELOW THIS LINE.
 
 [[constraint]]

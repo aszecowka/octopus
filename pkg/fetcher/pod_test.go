@@ -3,7 +3,6 @@ package fetcher_test
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	"testing"
 
 	"github.com/kyma-incubator/octopus/pkg/scheduler"
@@ -18,8 +17,6 @@ import (
 	"k8s.io/api/core/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/kubernetes/pkg/apis/core"
-	"k8s.io/kubernetes/pkg/apis/core/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -89,25 +86,41 @@ func TestGetPodsForSuiteOnError(t *testing.T) {
 // XXX
 // pkh/apis/core/validation --> ValidatePodTemplateSpec
 /*
-    spec:
-      containers:
-        - image: alpine:latest
-          command:
-            - "pwd"
+   spec:
+     containers:
+       - image: alpine:latest
+         command:
+           - "pwd"
 
- */
-func TestPodSpecValidation(t *testing.T) {
-	cSpec := core.PodTemplateSpec{
-		Spec: core.PodSpec{
-			Containers: []core.Container{
-				{
-					Image:   "sth",
-					Command: []string{"pwd"},
-				},
-			},
-		},
-	}
-	//spec := &v1.PodTemplateSpec{}
-	errList := validation.ValidatePodTemplateSpec(&cSpec, field.NewPath("abcd"))
-	fmt.Println(errList)
-}
+*/
+//func TestPodSpecValidation(t *testing.T) {
+//	cSpec := core.PodTemplateSpec{
+//		Spec: core.PodSpec{
+//			Containers: []core.Container{
+//				{
+//					Image:   "sth",
+//					Command: []string{"pwd"},
+//				},
+//			},
+//		},
+//	}
+//	//spec := &v1.PodTemplateSpec{}
+//
+//	errList := validation.ValidatePodTemplateSpec(&cSpec, field.NewPath("abcd"))
+//	for _, e := range errList {
+//		fmt.Println("Current error is ", e)
+//	}
+//	//fmt.Println(errList)
+//}
+
+// apiextensions-server: utilfeature.DefaultFeatureGate.Add(defaultKubernetesFeatureGates)
+// apiserver/pkg/util/feature DefaultFeatureGate FeatureGate = DefaultMutableFeatureGate
+
+//type FeatureGate interface {
+//	Enabled(key Feature) bool
+//	KnownFeatures() []string
+//	DeepCopy() MutableFeatureGate
+//}
+
+//  apiextensions-servers: version = "kubernetes-1.12.3"
+//  apiserver version = "kubernetes-1.12.3"
